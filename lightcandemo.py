@@ -3,7 +3,7 @@ import cantools
 import time
 import threading
 
-CAN_CHANNEL = 'COM14'  #장치관리자 확인하고 수정하시오 아카자공
+CAN_CHANNEL = 'COM14'  #장치관리자 확인하고 수정하세요 탄지로군
 CAN_BITRATE = 500000
 MESSAGE_ID = 1345
 MESSAGE_NAME = 'CGW1'
