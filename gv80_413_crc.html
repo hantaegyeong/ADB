@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRC-8 0x413 계산 과정 시각화</title>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 800px; width: 90%; }
+        h1 { color: #1a73e8; text-align: center; margin-bottom: 1.5rem; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 60px; text-align: center; font-family: monospace; }
+        button { padding: 10px 20px; background-color: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #1557b0; }
+        .result-box { background-color: #e8f0fe; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #d2e3fc; }
+        .step-log { margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; background-color: #333; color: #fff; padding: 15px; border-radius: 8px; }
+        .highlight { color: #fbbc04; font-weight: bold; }
+        .poly-hit { color: #ff6b6b; font-weight: bold; }
+        .final-xor { color: #4ecdc4; font-weight: bold; }
+        .byte-box { display: inline-block; padding: 5px 10px; margin: 2px; background: #eee; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>CRC-8 (0x413) 계산기</h1>
+    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+        공식: CRC8(Data, Poly=0x1D) ^ 0xB9
+    </p>
+
+    <div class="input-group">
+        <!-- Byte 1 ~ 7 Inputs -->
+        <input type="text" id="b1" value="90" placeholder="B1">
+        <input type="text" id="b2" value="40" placeholder="B2">
+        <input type="text" id="b3" value="00" placeholder="B3">
+        <input type="text" id="b4" value="00" placeholder="B4">
+        <input type="text" id="b5" value="00" placeholder="B5">
+        <input type="text" id="b6" value="00" placeholder="B6">
+        <input type="text" id="b7" value="00" placeholder="B7">
+        <button onclick="calculate()">계산하기</button>
+    </div>
+
+    <div class="result-box">
+        <h3>최종 결과 (Byte 0): <span id="finalResult" style="color: #d93025; font-size: 1.5rem;">-</span></h3>
+        <p>전체 메시지: <span id="fullMessage" style="font-family: monospace; font-weight: bold;">-</span></p>
+    </div>
+
+    <div class="step-log" id="logArea">
+        계산 로그가 여기에 표시됩니다...
+    </div>
+</div>
+
+<script>
+    function calculate() {
+        const inputs = [
+            document.getElementById('b1').value,
+            document.getElementById('b2').value,
+            document.getElementById('b3').value,
+            document.getElementById('b4').value,
+            document.getElementById('b5').value,
+            document.getElementById('b6').value,
+            document.getElementById('b7').value
+        ];
+
+        let data = [];
+        for (let val of inputs) {
+            data.push(parseInt(val, 16) || 0);
+        }
+
+        let crc = 0x00;
+        const poly = 0x1D;
+        const xor_out = 0xB9;
+        let logHtml = "";
+
+        logHtml += `[시작] 초기값: 0x00\n`;
+
+        for (let i = 0; i < data.length; i++) {
+            let byte = data[i];
+            logHtml += `\n[Byte ${i+1}] 입력: 0x${byte.toString(16).toUpperCase().padStart(2, '0')}\n`;
+            
+            crc ^= byte;
+            logHtml += `  -> XOR 후: 0x${crc.toString(16).toUpperCase().padStart(2, '0')} (${crc.toString(2).padStart(8, '0')})\n`;
+
+            for (let bit = 0; bit < 8; bit++) {
+                let is_msb = (crc & 0x80) !== 0;
+                crc = (crc << 1) & 0xFF;
+                
+                if (is_msb) {
+                    crc ^= poly;
+                    logHtml += `    Bit ${bit+1}: <span class="poly-hit">SHIFT & XOR 0x1D</span> -> 0x${crc.toString(16).toUpperCase().padStart(2, '0')}\n`;
+                } else {
+                    logHtml += `    Bit ${bit+1}: SHIFT only       -> 0x${crc.toString(16).toUpperCase().padStart(2, '0')}\n`;
+                }
+            }
+        }
+
+        let intermediate = crc;
+        let final = crc ^ xor_out;
+
+        logHtml += `\n[종료] 중간 결과: 0x${intermediate.toString(16).toUpperCase().padStart(2, '0')}\n`;
+        logHtml += `<span class="final-xor">[최종] 비밀키(0xB9) XOR: 0x${intermediate.toString(16).toUpperCase().padStart(2, '0')} ^ 0xB9 = 0x${final.toString(16).toUpperCase().padStart(2, '0')}</span>`;
+
+        document.getElementById('logArea').innerHTML = logHtml.replace(/\n/g, '<br>');
+        document.getElementById('finalResult').innerText = "0x" + final.toString(16).toUpperCase().padStart(2, '0');
+        
+        let msgStr = `ID: 0x413  Data: <span style="color:#d93025">${final.toString(16).toUpperCase().padStart(2, '0')}</span> ` + 
+                     inputs.map(v => v.toUpperCase().padStart(2,'0')).join(' ');
+        document.getElementById('fullMessage').innerHTML = msgStr;
+    }
+</script>
+
+</body>
+</html>
